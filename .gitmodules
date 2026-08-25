@@ -1,0 +1,6 @@
+[submodule "submodules/nvdiffrast"]
+	path = submodules/nvdiffrast
+	url = https://github.com/NVlabs/nvdiffrast
+[submodule "submodules/Depth-Anything-3"]
+	path = submodules/Depth-Anything-3
+	url = https://github.com/ByteDance-Seed/Depth-Anything-3.git
