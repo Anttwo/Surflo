@@ -25,8 +25,7 @@
 *Authors contributed equally to the paper.
 </font>
 
-| <a href="https://anttwo.github.io/surflo/">Webpage</a> | <a href="https://arxiv.org/abs/2606.13644">arXiv</a> | <a href="https://www.youtube.com/watch?v=uHdBCm2jhKA">Presentation video</a> | <a href="https://huggingface.co/AntoineGuedon/Surflo-v0">Weights</a> | <a href="https://huggingface.co/datasets/AntoineGuedon/DL3DV-10K-Meshed">Data</a> |
-
+| <a href="https://anttwo.github.io/surflo/">Webpage</a> | <a href="https://arxiv.org/abs/2606.13644">arXiv</a> | <a href="https://www.youtube.com/watch?v=uHdBCm2jhKA">Presentation video</a> | <a href="https://huggingface.co/AntoineGuedon/Surflo-v0">Weights</a> | <a href="https://huggingface.co/datasets/AntoineGuedon/DL3DV-10K-Meshed">Training Data</a> | <a href="https://huggingface.co/datasets/AntoineGuedon/Surflo-eval-data">Eval data</a> |
 
 </div>
 
@@ -526,6 +525,8 @@ loss / Chamfer curves, or lower `logging.viz.num_query_points`.
 After [preprocessing](#data-and-preprocessing), `scripts/evaluate.py` scores a
 checkpoint in a single pass: inference + alignment (Umeyama + robust ICP) +
 symmetric Chamfer / F1.
+
+You can download [evaluation data preprocessed by ourselves](https://huggingface.co/datasets/AntoineGuedon/Surflo-eval-data).
 
 ```bash
 # Plain flow, on T&T:
