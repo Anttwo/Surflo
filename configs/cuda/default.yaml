@@ -1,0 +1,3 @@
+cudnn_deterministic: False
+cudnn_benchmark: False
+allow_tf32: True

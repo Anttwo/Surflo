@@ -1,0 +1,4 @@
+# @package _global_
+# SCRREAM (uniform-sampled). `data_dir` must point at the preprocessed scenes.
+benchmark_name: scrream
+data_dir: ???

@@ -1,0 +1,4 @@
+# @package _global_
+# Mip-NeRF 360. `data_dir` must point at the preprocessed scenes.
+benchmark_name: mipnerf
+data_dir: ???

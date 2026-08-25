@@ -1,0 +1,4 @@
+# @package _global_
+# DTU (uniform-sampled, STL GT). `data_dir` must point at the preprocessed scenes.
+benchmark_name: dtu
+data_dir: ???

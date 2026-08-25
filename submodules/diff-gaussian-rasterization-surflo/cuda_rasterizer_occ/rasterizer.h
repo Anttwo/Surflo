@@ -1,0 +1,241 @@
+/*
+ * Copyright (C) 2023, Inria
+ * GRAPHDECO research group, https://team.inria.fr/graphdeco
+ * All rights reserved.
+ *
+ * This software is free for non-commercial, research and evaluation use
+ * under the terms of the LICENSE.md file.
+ *
+ * For inquiries contact  george.drettakis@inria.fr
+ */
+
+#ifndef CUDA_RASTERIZER_OCC_H_INCLUDED
+#define CUDA_RASTERIZER_OCC_H_INCLUDED
+
+#include <cstdint>
+#include <functional>
+#include <vector>
+
+// NOTE(surflo): the occupancy pipeline is nested in `dgr_occ` so it can be
+// linked into the same `_C` extension as the RaDe-GS render pipeline without
+// symbol clashes (both define namespace CudaRasterizer, FORWARD, BACKWARD, ...).
+namespace dgr_occ {
+namespace CudaRasterizer {
+class Rasterizer {
+public:
+    static void markVisible(
+        int P,
+        float* means3D,
+        float* viewmatrix,
+        float* projmatrix,
+        bool* present);
+
+    static int forward(
+        std::function<char*(size_t)> geometryBuffer,
+        std::function<char*(size_t)> binningBuffer,
+        std::function<char*(size_t)> imageBuffer,
+        std::function<char*(size_t)> tileBuffer,
+        const int P, int SHD, int SHM, int SGD, int SGM,
+        const float* background,
+        const int width, int height,
+        const float* means3D,
+        const float* colors_precomp,
+        const float* opacities,
+        const float* scales,
+        const float* rotations,
+        const float* cov3D_precomp,
+        const float* shs,
+        const float* sg_axis,
+        const float* sg_sharpness,
+        const float* sg_color,
+        const float scale_modifier,
+        const float* viewmatrix,
+        const float* projmatrix,
+        const float* cam_pos,
+        const float tan_fovx,
+        const float tan_fovy,
+        const float kernel_size,
+        const bool prefiltered,
+        float* out_color,
+        float* out_mdepth,
+        float* out_alpha,
+        float* out_normal,
+        int* radii         = nullptr,
+        bool require_depth = true,
+        bool debug         = false);
+
+    static void backward(
+        std::function<char*(size_t)> geometryBuffer,
+        const int P, int SHD, int SHM, int SGD, int SGM, int R,
+        const float* background,
+        const int width, int height,
+        const float* means3D,
+        const float* colors_precomp,
+        const float* opacities,
+        const float* scales,
+        const float* rotations,
+        const float* cov3D_precomp,
+        const float* shs,
+        const float* sg_axis,
+        const float* sg_sharpness,
+        const float* sg_color,
+        const float scale_modifier,
+        const float* viewmatrix,
+        const float* projmatrix,
+        const float* campos,
+        const float tan_fovx,
+        const float tan_fovy,
+        const float kernel_size,
+        const int* radii,
+        const float* alphas,
+        const float* normalmap,
+        const float* mdepth,
+        char* geom_buffer,
+        char* binning_buffer,
+        char* image_buffer,
+        char* tile_buffer,
+        const float* dL_dpix,
+        const float* dL_dpix_mdepth,
+        const float* dL_dalphas,
+        const float* dL_dpixel_normals,
+        float* dL_dmean3D,
+        float* dL_dmean2D,
+        float* dL_dcolor,
+        float* dL_dopacity,
+        float* dL_dscale,
+        float* dL_drot,
+        float* dL_dcov3D,
+        float* dL_dsh,
+        float* dL_dsg_axis,
+        float* dL_dsg_sharpness,
+        float* dL_dsg_color,
+        bool require_depth = true,
+        bool debug         = false);
+
+    static int evaluateTransmittance(
+        std::function<char*(size_t)> geometryBuffer,
+        std::function<char*(size_t)> binningBuffer,
+        std::function<char*(size_t)> pointBuffer,
+        std::function<char*(size_t)> point_binningBuffer,
+        std::function<char*(size_t)> tileBuffer,
+        std::function<char*(size_t)> duplicatedTileBuffer,
+        const int PN, const int P,
+        const int width, int height,
+        const float* points3D,
+        const float* means3D,
+        const float* opacities,
+        const float* scales,
+        const float scale_modifier,
+        const float* rotations,
+        const float* cov3D_precomp,
+        const float* depths_plane_precomp,
+        const float* viewmatrix,
+        const float* projmatrix,
+        const float* cam_pos,
+        const float tan_fovx,
+        const float tan_fovy,
+        const float kernel_size,
+        const bool prefiltered,
+        float* out_transmittance,
+        bool* inside,
+        bool* condition = nullptr,
+        bool debug      = false);
+
+    static int evaluateSDF(
+        std::function<char*(size_t)> geometryBuffer,
+        std::function<char*(size_t)> binningBuffer,
+        std::function<char*(size_t)> pointBuffer,
+        std::function<char*(size_t)> point_binningBuffer,
+        std::function<char*(size_t)> tileBuffer,
+        std::function<char*(size_t)> duplicatedTileBuffer,
+        const int PN, const int P,
+        const int width, int height,
+        const float* points3D,
+        const float* means3D,
+        const float* opacities,
+        const float* scales,
+        const float scale_modifier,
+        const float* rotations,
+        const float* cov3D_precomp,
+        const float* depths_plane_precomp,
+        const float* viewmatrix,
+        const float* projmatrix,
+        const float* cam_pos,
+        const float tan_fovx,
+        const float tan_fovy,
+        const float kernel_size,
+        const bool prefiltered,
+        float* out_depth,
+        float* out_sdf,
+        bool* inside,
+        bool* condition = nullptr,
+        bool debug      = false);
+
+    static int3 sampleDepth(
+        std::function<char*(size_t)> geometryBuffer,
+        std::function<char*(size_t)> binningBuffer,
+        std::function<char*(size_t)> pointBuffer,
+        std::function<char*(size_t)> point_binningBuffer,
+        std::function<char*(size_t)> tileBuffer,
+        std::function<char*(size_t)> duplicatedTileBuffer,
+        const int PN, const int P,
+        const int width, int height,
+        const float* points3D,
+        const float* means3D,
+        const float* opacities,
+        const float* scales,
+        const float scale_modifier,
+        const float* rotations,
+        const float* cov3D_precomp,
+        const float* viewmatrix,
+        const float* projmatrix,
+        const float* cam_pos,
+        const float tan_fovx,
+        const float tan_fovy,
+        const float kernel_size,
+        const bool prefiltered,
+        float* output,
+        bool* inside,
+        bool debug = false);
+
+    static void sampleDepthBackward(
+        std::function<char*(size_t)> geometryBuffer,
+        const int PN, const int P,
+        const int RN, const int R,
+        const int TN,
+        const int width, int height,
+        const float* points3D,
+        const float* means3D,
+        const float* opacities,
+        const float* scales,
+        const float scale_modifier,
+        const float* rotations,
+        const float* cov3D_precomp,
+        const float* viewmatrix,
+        const float* projmatrix,
+        const float* cam_pos,
+        const float tan_fovx,
+        const float tan_fovy,
+        const float kernel_size,
+        char* geom_buffer,
+        char* binning_buffer,
+        char* point_buffer,
+        char* point_binning_buffer,
+        char* tile_buffer,
+        char* duplicatedtileBuffer,
+        const bool* inside,
+        const float* dL_doutput,
+        float* dL_dmean2D,
+        float* dL_dpoint2D,
+        float* dL_dopacity,
+        float* dL_dmean3D,
+        float* dL_dcov3D,
+        float* dL_dscale,
+        float* dL_drot,
+        float* dL_dpoint,
+        bool debug);
+};
+}; // namespace CudaRasterizer
+} // namespace dgr_occ
+
+#endif

@@ -1,0 +1,42 @@
+# Surflo — pip / uv requirements for CUDA 12.1 / PyTorch 2.3.1.
+#
+# For an environment that ALREADY has Python 3.10 and a CUDA 12.1 toolkit on
+# PATH (an HPC `module load cuda/12.1`, or a system install). Check with
+# `nvcc --version` — it must report 12.1. If you do not have a matching
+# toolkit, use install/environment-cu121.yml instead, which supplies its own.
+#
+# Usage — run from the repository root:
+#   uv venv --python 3.10 && source .venv/bin/activate
+#   uv pip install --index-strategy unsafe-best-match \
+#       -r install/requirements-cu121.txt
+#   bash install/build_extensions.sh
+#   python install/verify_install.py
+#
+# The --index-strategy flag is REQUIRED with uv: by default it considers only
+# the first index carrying a package, so it finds an outdated tqdm on the
+# PyTorch index and fails to resolve. Set UV_INDEX_STRATEGY=unsafe-best-match
+# to avoid repeating it. Plain pip needs no such flag:
+#   pip install -r install/requirements-cu121.txt
+# See install/README.md for the full walkthrough and the optional extras.
+--extra-index-url https://download.pytorch.org/whl/cu121
+--find-links https://data.pyg.org/whl/torch-2.3.1+cu121.html
+
+# --- CUDA-specific: must match the nvcc on your PATH ---
+torch==2.3.1+cu121
+torchvision==0.18.1+cu121
+torch-cluster==1.6.3
+# Capped below 2.8: 2.8 requires pyg-lib for knn and dropped the
+# torch_cluster fallback the model relies on (see pyproject.toml).
+torch-geometric>=2.7.0,<2.8
+
+# Parallel builds for the compiled extensions (~2 min instead of ~20).
+ninja
+
+# NOTE: the surflo package itself is deliberately NOT listed here.
+# A relative `-e .` cannot be correct for both callers: pip resolves it against
+# this file's own directory (install/), while a direct `pip install -r` from the
+# repository root would want the root. Installing the package is therefore an
+# explicit step:
+#     pip install -e .          # run from the repository root
+# That also pulls every CUDA-agnostic dependency (einops, hydra, trimesh, ...)
+# from pyproject.toml, which stays their single source of truth.

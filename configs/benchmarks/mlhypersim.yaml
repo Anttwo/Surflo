@@ -1,0 +1,4 @@
+# @package _global_
+# ML-HyperSim. `data_dir` must point at the preprocessed scenes.
+benchmark_name: mlhypersim
+data_dir: ???

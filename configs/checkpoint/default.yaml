@@ -1,0 +1,4 @@
+save_dir: logs/${exp_name}/ckpts
+save_freq: 10
+resume_checkpoint_path: null
+strict: False

@@ -1,0 +1,4 @@
+# @package _global_
+# BlendedMVS (adaptive-sampled). `data_dir` must point at the preprocessed scenes.
+benchmark_name: blendedmvs
+data_dir: ???

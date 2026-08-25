@@ -1,0 +1,4 @@
+# @package _global_
+# DeepBlending (uniform-sampled). `data_dir` must point at the preprocessed scenes.
+benchmark_name: deepblending
+data_dir: ???

@@ -1,0 +1,17 @@
+# @package expert
+# Monodepth expert (DepthAnything3). Only used by guided modes whose
+# preset enables `use_monodepth_guidance` / `use_normal_guidance` (e.g.
+# guided=default). scripts/infer.py then builds `monodepths` /
+# `normal_guidances` per scene and forwards them to the inference call.
+#
+# Pipeline:
+#   1. Run DA3 on each scene at `pred_res`, resize back to input res in
+#      disparity space.
+#   2. Build per-view normals from the high-res monodepth (VGGT-depth
+#      median+scale alignment, gated by VGGT confidence >
+#      `conf_threshold_for_normal_guidance`), then downsample to input res.
+enabled: true                    # false => error if a preset requests experts
+monodepth_id: depth-anything/da3mono-large
+pred_res: 1596
+process_res_method: upper_bound_resize
+conf_threshold_for_normal_guidance: 2.0

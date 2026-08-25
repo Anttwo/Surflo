@@ -1,0 +1,103 @@
+[project]
+name = "surflo"
+version = "0.1.0"
+description = "Surflo: Consistent 3D Surface Flow Model with Global State (inference & evaluation)"
+readme = "README.md"
+requires-python = "==3.10.*"
+# Gaussian-Splatting License: non-commercial, research and evaluation use only.
+# See THIRD_PARTY_NOTICES.md for why this applies to Surflo as a whole.
+license = { file = "LICENSE.md" }
+
+# Surflo is installed from a source checkout, not from PyPI: it needs compiled
+# CUDA extensions that have to be built against the torch already in your
+# environment. Always install via one of the install/ files, which pin torch to
+# a specific CUDA build first; see install/README.md.
+#
+# This list is the SINGLE source of truth for the CUDA-agnostic dependencies.
+# The install/ files deliberately do not repeat it — they carry only what is
+# CUDA-specific (indexes, torch pins, the build toolchain).
+# Every dependency carries an upper bound. Two of the bounds below were only
+# added after an unconstrained release broke a fresh install (torch-geometric
+# 2.8 removed the torch_cluster path `knn` needs; trimesh 5 was untested), so
+# the rest are capped pre-emptively: a release that sits unchanged for months
+# should keep installing. The convention is "next major" for 1.x+ projects and
+# "next minor" for 0.x ones, which still admits patch and compatible releases.
+# Each cap is at or above a version this project has actually been run on.
+dependencies = [
+    "einops>=0.8.2,<0.9",
+    "flow-matching>=1.0.10,<2",
+    # Verified across a wide span of major 1 (1.4.1 and 1.26.0).
+    "huggingface-hub>=0.24,<2",
+    "hydra-core>=1.3.2,<1.4",
+    # Both 1.26.x and 2.x are verified, including that numpy's RNG streams —
+    # which draw the GT evaluation cloud — are identical between them. Note the
+    # monodepth expert (Depth-Anything-3) separately requires `numpy<2`.
+    "numpy>=1.26,<3",
+    "omegaconf>=2.3.0,<2.4",
+    "pillow>=10.0.0,<13",
+    "safetensors>=0.4.0,<1",
+    "scipy>=1.15.3,<2",
+    # Span of the two reference environments (torch 2.3.1+cu118 and
+    # 2.4.1+cu124). Deliberately loose: the install/ files pick the exact CUDA
+    # build, and a tight pin here would make `pip install -e ".[demo]"` silently
+    # upgrade torch out from under already-compiled CUDA extensions.
+    "torch>=2.3.1,<2.5",
+    "torchvision>=0.18.1,<0.20",
+    # Installed from the PyG wheel index by the install/ files (there is no
+    # matching wheel on PyPI; plain pip would fall back to a source build).
+    "torch-cluster>=1.6.3,<2",
+    # Capped below 2.8: torch-geometric 2.8 gates knn/fps/knn_graph behind
+    # `pyg-lib>=0.6.0` and dropped the torch_cluster fallback, so `from
+    # torch_geometric.nn import knn` (surflo/utils/geometry.py) raises
+    # ImportError at runtime. 2.7.x still accepts torch_cluster.
+    "torch-geometric>=2.7.0,<2.8",
+    "tqdm>=4.67.3,<5",
+    # Capped below 5: both reference environments run 4.11.x, and an
+    # unconstrained install resolves to trimesh 5.x, which has not been tested
+    # here. Only a small surface is used (Trimesh, PointCloud, creation.box,
+    # visual.TextureVisuals), so lifting the cap is likely fine — but verify the
+    # GLB export in examples/gradio_demo.py before doing it.
+    "trimesh>=4.11.3,<5",
+]
+
+[project.urls]
+Homepage = "https://anttwo.github.io/surflo/"
+Paper = "https://arxiv.org/abs/2606.13644"
+
+[project.optional-dependencies]
+# Training (see training/README.md): fvcore param schedulers (instantiated by
+# Hydra from configs/optim/default.yaml), EMA, robust checkpoint I/O (iopath),
+# and Weights & Biases scalar logging.
+train = [
+    "ema-pytorch>=0.7.9,<0.9",
+    "fvcore>=0.1.5,<0.2",
+    "iopath>=0.1.9,<0.2",
+    "wandb>=0.16.0,<1",
+]
+# Textured-mesh export (UV atlas). Also needs nvdiffrast, which is a compiled
+# extension: `bash install/build_extensions.sh --with-nvdiffrast`.
+texture = ["xatlas>=0.0.9,<0.1"]
+# Interactive Gradio demo (examples/gradio_demo.py). Uses the surflo API +
+# plotly for the interactive point-cloud plot + trimesh (core dep) for GLB mesh export.
+demo = ["gradio>=4.0,<7", "plotly>=5.0,<7"]
+
+# NOTE: reading EMA weights needs no extra package — surflo/model/loader.py
+# strips the `ema_model.` prefix itself. `ema-pytorch` is only needed to *train*
+# (hence its place in [train]).
+#
+# NOTE: guided inference and mesh extraction additionally need two compiled CUDA
+# extensions, which are not on PyPI and must be built against your installed
+# torch (`bash install/build_extensions.sh`):
+#   - diff_gaussian_rasterization_surflo (the Surflo renderer + wrapping-mesh
+#                                         occupancy integration)
+#   - fused_ssim                         (SSIM term of the rendering loss)
+# The optional monodepth expert additionally needs Depth-Anything-3
+# (`use_monodepth_guidance` / `use_normal_guidance`).
+# Plain inference (`mode=plain`) needs none of them.
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["surflo*"]

@@ -1,0 +1,52 @@
+# @package _global_
+#
+# Variable-view curriculum run (4 GPUs) over the orbit-shot subset, with the
+# view-count schedule the released checkpoint was trained under.
+# View count N is drawn per iteration over [2 .. 16]; the batch is a fixed
+# 3 scenes/GPU (max_img_per_gpu // n_max_views = 48 // 16). Cull-radius follows
+# a power-law curriculum on [1.0, 3.0], pinned toward 1.0, annealed over
+# 20 epochs.
+#
+# `image_num_weights` (below) is the ONLY difference from `orbit_2to16views`.
+# The two therefore use different `exp_name`s on purpose: they share everything
+# else, so an identical name would put them in the same
+# `logs/<exp_name>/ckpts` and one run would silently resume from the other's
+# checkpoint with a different data stream.
+defaults:
+  - override /data: multiview
+
+exp_name: surflo_curriculum_2to16views_orbitshot_4gpu_release
+
+num_val_scenes: 100
+max_img_per_gpu: 48
+img_nums: [2, 16]
+max_epochs: 201
+
+# Draw N=16 twice as often as each other view count, reproducing the schedule
+# the released runs trained under. (The `configs/data/multiview.yaml` default is
+# `{}` = uniform over `img_nums`; back then the weighting was implicit in the
+# two-directory cache layout, which held two caches per scene at N=16 and one at
+# each lower N.) Applied to val as well, so the validation stream matches train.
+data:
+  train:
+    image_num_weights: {16: 2}
+  val:
+    image_num_weights: {16: 2}
+
+limit_train_batches: 2500
+limit_val_batches: 2
+slow_val_epoch_freq: 1000000
+ood_val_epoch_freq: 1
+
+cull_radius: [1.0, 3.0]
+
+# Cull-radius curriculum (train split only).
+cull_curriculum_warmup_epochs: 20
+cull_curriculum_law: "power"
+cull_curriculum_k_init: 3.0
+cull_curriculum_alpha_init: 3.0
+cull_curriculum_mode: 1.0
+cull_curriculum_max_progress: 0.85
+
+# Scene whitelist asset (relative to the training working directory).
+scene_whitelist: data/lists/orbitshot_scenes.txt

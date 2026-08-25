@@ -1,0 +1,80 @@
+# Surflo training entry point (train.py).
+#
+# Reproduces the two canonical training runs via the `override=` group:
+#   * override=orbit_2to16views -> variable-view (N in [2, 16]) curriculum run
+#                                  over the orbit-shot subset
+#   * override=full_16views     -> fixed 16-view curriculum run over the
+#                                  full dataset
+#
+# Training and inference share this single config root (configs/), so the
+# model architecture is defined once: `model: surflo` loads the exact
+# released-checkpoint architecture from `configs/model/surflo.yaml` (the
+# same file inference uses). Only `compile` is flipped on for training below.
+#
+# Example (4 GPUs):
+#   cd training
+#   PYTHONPATH=.. WANDB_MODE=offline torchrun --nproc_per_node=4 train.py \
+#       override=orbit_2to16views \
+#       data_dir=/path/to/DL3DV-preprocessed \
+#       ood_data_dir=/path/to/FFM_test_preprocessed
+defaults:
+  - model: surflo
+  - data: multiview
+  - optim: default
+  - loss: flow
+  - logging: default
+  - distributed: default
+  - cuda: default
+  - checkpoint: default
+  - _self_
+  - override: ???
+
+# --- Paths (pass on the command line) ---
+# `data_dir` is the directory of preprocessed scenes written by
+# scripts/preprocess.py; it is mandatory. `ood_data_dir` is a second such
+# directory used for the out-of-distribution validation pass; `null` skips it.
+data_dir: ???
+ood_data_dir: null
+
+# Optional file of scene ids (one per line, relative to the training working
+# directory) restricting which scenes are used. `null` uses every scene found
+# in `data_dir`; `orbit_2to16views` points it at the orbit-shot subset.
+scene_whitelist: null
+
+# --- Run identity ---
+exp_name: surflo
+mode: train
+device: cuda
+seed_value: 42
+
+# --- Loss / model prediction target (consumed via interpolation) ---
+estimate_in_freq_enc: false
+prediction_mode: velocity
+compute_loss_in_velocity: false
+
+# --- Data sizing ---
+overfit_mode: false
+num_val_scenes: null
+num_workers: 8
+accum_steps: 1
+max_img_per_gpu: 48
+img_nums: [16, 16]
+
+# --- Schedule ---
+max_epochs: 600
+limit_train_batches: 2500
+limit_val_batches: 2
+val_epoch_freq: 1
+slow_val_epoch_freq: 1000000
+ood_val_epoch_freq: null
+
+# Enable torch.compile for the model during training (no effect on inference).
+model:
+  compile: true
+
+# Hydra: no automatic output dir / chdir (the trainer manages its own log dir).
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: .

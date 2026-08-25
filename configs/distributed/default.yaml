@@ -1,0 +1,6 @@
+backend: nccl
+find_unused_parameters: False
+timeout_mins: 30
+gradient_as_bucket_view: True
+bucket_cap_mb: 25
+broadcast_buffers: True

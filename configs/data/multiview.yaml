@@ -1,0 +1,128 @@
+# Preprocessed DL3DV pipeline.
+#
+# Train/val draw a view count N per iteration over [img_nums[0] .. img_nums[1]]
+# and load the cache for that exact N. `img_nums` therefore decides the regime:
+# a range like [2, 16] gives variable-view training, while [16, 16] pins every
+# item to 16 views -- which is what the fixed-16 run uses.
+# OOD val stays on the single-resolution dataset locked at N=16.
+#
+# `data_dir` is ONE directory holding every view count as
+# `sample_<idx>_views_<NNN>.pt` next to `surface_data.npz` -- what
+# `scripts/preprocess.py` writes. A bare `sample_<idx>.pt` counts as
+# n_max_views views.
+train:
+  _target_: data.dynamic_multiview_dataloader.MultiviewDynamicTorchDataset
+  num_workers: ${num_workers}
+  max_img_per_gpu: ${max_img_per_gpu}
+  shuffle: True
+  pin_memory: False
+  n_max_views: 16
+  # Unnormalized probability per view count N. `{}` is uniform over img_nums;
+  # any N left out gets 1.0, and 0 removes it from the draw entirely.
+  #   {16: 2}                      -> N=16 twice as likely (the legacy schedule)
+  #   {2: 0, 3: 0, ..., 15: 0}     -> train on a single N
+  # The weight is per N, not per cache file: N is drawn first, then a file is
+  # picked uniformly among that N's caches.
+  image_num_weights: {}
+  common_config:
+    fix_img_num: -1
+    fix_aspect_ratio: 1.0
+    training: True
+    inside_random: True
+    img_nums: ${img_nums}
+    augs:
+      aspects: [1.0, 1.0]
+  dataset:
+    _target_: data.composed_dataset.ComposedDataset
+    dataset_configs:
+      - _target_: data.datasets.dl3dv_preprocessed_multiview.FfmDl3dvPreprocessedMultiviewDataset
+        split: train
+        DL3DV_DIR: ${data_dir}
+        n_max_views: 16
+        cull_radius: ${cull_radius}
+        spatial_mean: ${model.spatial_mean}
+        spatial_std: ${model.spatial_std}
+        per_scene_normalize: ${model.per_scene_normalize}
+        scene_normalize_mode: ${model.scene_normalize_mode}
+        n_points: 8192
+        num_val_scenes: ${num_val_scenes}
+        load_normals: true
+        scene_whitelist: ${scene_whitelist}
+        cull_curriculum_warmup_epochs: ${cull_curriculum_warmup_epochs}
+        cull_curriculum_law: ${cull_curriculum_law}
+        cull_curriculum_k_init: ${cull_curriculum_k_init}
+        cull_curriculum_alpha_init: ${cull_curriculum_alpha_init}
+        cull_curriculum_mode: ${cull_curriculum_mode}
+        cull_curriculum_max_progress: ${cull_curriculum_max_progress}
+
+val:
+  _target_: data.dynamic_multiview_dataloader.MultiviewDynamicTorchDataset
+  num_workers: ${num_workers}
+  max_img_per_gpu: ${max_img_per_gpu}
+  shuffle: False
+  pin_memory: False
+  n_max_views: 16
+  # Unnormalized probability per view count N. `{}` is uniform over img_nums;
+  # any N left out gets 1.0, and 0 removes it from the draw entirely.
+  #   {16: 2}                      -> N=16 twice as likely (the legacy schedule)
+  #   {2: 0, 3: 0, ..., 15: 0}     -> train on a single N
+  # The weight is per N, not per cache file: N is drawn first, then a file is
+  # picked uniformly among that N's caches.
+  image_num_weights: {}
+  common_config:
+    fix_img_num: -1
+    fix_aspect_ratio: 1.0
+    training: False
+    inside_random: False
+    img_nums: [16, 16]
+    augs:
+      aspects: [1.0, 1.0]
+  dataset:
+    _target_: data.composed_dataset.ComposedDataset
+    dataset_configs:
+      - _target_: data.datasets.dl3dv_preprocessed_multiview.FfmDl3dvPreprocessedMultiviewDataset
+        split: test
+        DL3DV_DIR: ${data_dir}
+        n_max_views: 16
+        cull_radius: ${cull_radius}
+        spatial_mean: ${model.spatial_mean}
+        spatial_std: ${model.spatial_std}
+        per_scene_normalize: ${model.per_scene_normalize}
+        scene_normalize_mode: ${model.scene_normalize_mode}
+        n_points: 8192
+        chamfer_n_points: 99999
+        num_val_scenes: ${num_val_scenes}
+        load_normals: true
+        fixed_seed_surface_points: true
+        scene_whitelist: ${scene_whitelist}
+
+ood_val:
+  _target_: data.dynamic_dataloader.DynamicTorchDataset
+  num_workers: ${num_workers}
+  max_img_per_gpu: ${max_img_per_gpu}
+  shuffle: False
+  pin_memory: False
+  common_config:
+    fix_img_num: -1
+    fix_aspect_ratio: 1.0
+    training: False
+    inside_random: False
+    img_nums: [16, 16]
+    augs:
+      aspects: [1.0, 1.0]
+  dataset:
+    _target_: data.composed_dataset.ComposedDataset
+    dataset_configs:
+      - _target_: data.datasets.dl3dv_preprocessed.FfmDl3dvPreprocessedDataset
+        split: test
+        DL3DV_DIR: ${ood_data_dir}
+        cull_radius: ${cull_radius}
+        spatial_mean: ${model.spatial_mean}
+        spatial_std: ${model.spatial_std}
+        per_scene_normalize: ${model.per_scene_normalize}
+        scene_normalize_mode: ${model.scene_normalize_mode}
+        n_points: 8192
+        chamfer_n_points: 99999
+        num_val_scenes: null
+        load_normals: true
+        fixed_seed_surface_points: true

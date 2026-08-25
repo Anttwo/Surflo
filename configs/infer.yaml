@@ -1,0 +1,75 @@
+# Surflo inference entry point (scripts/infer.py).
+#
+# Reconstructs a surface from a folder of RGB images. Two modes, picked
+# with `mode=`:
+#   * plain  -> initial.ply (source distribution) + final.ply
+#               (flowed oriented points). No rendering / mesh.
+#   * guided -> rendering-guided flow with 3DGS-style densification
+#               -> point_cloud_normals.ply + point_cloud_rgb.ply + mesh.ply,
+#               plus an optional textured mesh.
+#
+# Each mode has its own preset block (`plain`, `guided`) loaded from
+# the corresponding config group; only the block matching `mode`
+# is used. `mesh`, `expert` and `texture` configure the guided post-processing.
+#
+# Example (plain):
+#   python scripts/infer.py mode=plain plain=default \
+#       ckpt=/path/to/surflo_v0.pt \
+#       source.image_folder=/path/to/images source.n_images=16 \
+#       output_dir=outputs/surflo_plain_demo
+#
+# Example (guided + densify, default preset, textured):
+#   python scripts/infer.py mode=guided guided=default mesh=default \
+#       ckpt=/path/to/surflo_v0.pt \
+#       source.image_folder=/path/to/images source.n_images=16 \
+#       num_query_points=100000 \
+#       expert.conf_threshold_for_normal_guidance=2.0 \
+#       texture.enabled=true texture.n_iterations=0 \
+#       output_dir=outputs/surflo_densify_default
+defaults:
+  - model: surflo
+  - plain: default
+  - guided: default
+  - mesh: default
+  - expert: default
+  - texture: default
+  - _self_
+
+# One of {plain, guided}.
+mode: guided
+
+# Number of points sampled from the source distribution and flowed through the
+# ODE. Shared by both modes, so it lives here rather than in the `plain` /
+# `guided` preset blocks. In guided mode these seed the Gaussians, so
+# densification/pruning means the final count differs from this number.
+num_query_points: 100000
+
+# Checkpoint + device.
+ckpt: ???
+device: cuda
+seed: 42
+use_ema: true
+
+# Output.
+output_dir: outputs/surflo
+overwrite: false
+
+# Input: a folder of JPG/PNG images (a single scene).
+source:
+  image_folder: ???
+  n_images: null             # null -> use every image in the folder
+  sampling: uniform          # uniform | random (ignored when n_images is null)
+  target_size: 518
+  cull_radius: 10.0          # forwarded to model.preprocess_images
+
+# Opacity cull for the saved point cloud (guided modes). The reconstructed cloud
+# is written as point_cloud_normals.ply (normals-colored) plus its TSDF-colored
+# companion point_cloud_rgb.ply, keeping only Gaussians with opacity >= this
+# threshold. null / <= 0 keeps every point. Mesh extraction ALWAYS uses the full
+# Gaussian set (this threshold never touches mesh.ply).
+filtered_centers_opacity_threshold: 0.1
+
+# PLY writer settings.
+ply:
+  binary: true
+  initial_color: [128, 128, 255]   # solid color for initial.ply w/o normals

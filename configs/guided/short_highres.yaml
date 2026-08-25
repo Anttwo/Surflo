@@ -1,0 +1,98 @@
+# @package guided
+# `short` with denser Gaussians: densification_interval 125 -> 62. NOTE the
+# name is historical -- this changes Gaussian density, not resolution.
+# `scripts/infer.py` auto-builds the DA3 monodepth / VGGT-aligned normal
+# tensors per scene when `use_monodepth_guidance` / `use_normal_guidance`
+# are set (see the `expert` config group).
+defaults:
+  - default
+  - _self_
+
+start_time: 0.0
+# --- FM inference ---
+num_steps: 50
+use_biphase: true
+num_steps_phase_1: 25
+num_steps_phase_2: 50
+phase_switch_frac: 0.95
+# --- Rendering guidance for x ---
+learn_normals: true
+decouple_normals: true
+initial_n_gaussians_per_anchor: 1
+learn_camera_pose: true
+cam_rot_lr: 1.0e-5
+cam_trans_lr: 1.0e-5
+k_inner_loop: 32
+n_additional_iterations: 100
+use_position_lr_schedule: true
+# ---- 3DGS-style densification / pruning / opacity-reset ----
+densify_from_step: 250
+densify_until_step: 1000
+densification_interval: 62
+opacity_reset_interval: 500
+densify_grad_threshold: 0.0002
+densify_min_opacity: 0.05
+densify_percent_dense: 0.01
+densify_split_n: 2
+densify_use_abs_grad: true
+densify_max_screen_size_after_first_reset: 20
+opacity_reset_value: 0.01
+log_densify_diagnostics: false
+render_guidance_scale: 100.0
+render_guidance_start_frac: 0.95
+# --- Auxiliary Gaussian params ---
+use_rgb_loss: true
+use_dn_loss: true
+start_dn_loss_at_step: 50
+use_vggt_depth_loss: true
+use_mask_loss: true
+use_normal_loss: true
+start_normal_loss_at_step: 50
+use_anisotropy_penalty: true
+use_confidence: true
+confidence_threshold: 2.0
+use_smooth_confidence_mask: true
+smooth_confidence_mask_min_value: 0.01
+use_exposure_compensation: true
+use_entropy_loss: false
+start_entropy_loss_at_step: 125
+# Monodepth expert (auto-built per scene by scripts/infer.py).
+use_monodepth_guidance: true
+start_monodepth_guidance_at_step: 0
+depth_ratio_for_monodepth_guidance: 0.6
+use_normal_guidance: true
+start_normal_guidance_at_step: 0
+depth_ratio_for_normal_guidance: 0.6
+# Curvature loss.
+use_curvature_loss_for_normal_guidance: true
+lambda_curvature_loss: 0.025
+# Loss weights.
+lambda_rgb: 1.0
+lambda_depth: 5.0
+lambda_mask_loss: 1.0
+lambda_normal_loss: 0.05
+lambda_anisotropy_penalty: 0.1
+lambda_entropy_loss: 0.1
+lambda_monodepth_guidance: 1.0
+lambda_normal_guidance: 0.1
+use_random_bg: true
+mask_bg: true
+initial_opacity: 0.1
+initial_scale_factor: 1.0
+sh_degree: 3
+aux_lr_multiplier: 1.0
+gaussian_radius: 0.003
+initialize_isotropic_gaussians: true
+k_neighbors: 10
+target_camera_extent: 5.0
+# Lambda schedules.
+lambda_depth_schedule_values: [0.5]
+lambda_depth_schedule_steps: [63]
+lambda_monodepth_schedule_values: [0.5]
+lambda_monodepth_schedule_steps: [70]
+lambda_normal_guidance_schedule_values: [0.05]
+lambda_normal_guidance_schedule_steps: [70]
+lambda_curvature_loss_schedule_values: [0.0125]
+lambda_curvature_loss_schedule_steps: [70]
+use_sh_degree_warmup: true
+sh_degree_warmup_interval: 250

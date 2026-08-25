@@ -1,0 +1,68 @@
+# Surflo — self-contained conda environment for CUDA 11.8 / PyTorch 2.3.1.
+#
+# conda's only job here is the BUILD TOOLCHAIN: an `nvcc` and a C++ compiler
+# that match the torch wheel, plus the CUDA headers the extensions include.
+# The Python stack (torch included) comes from install/requirements-cu118.txt,
+# the same file the uv / pip path uses — so both installation options end up
+# with byte-identical packages.
+#
+# Usage — run from the repository root:
+#   conda env create -f install/environment-cu118.yml
+#   conda activate surflo-cu118
+#   pip install -e .
+#   bash install/activate_cuda.sh && conda deactivate && conda activate surflo-cu118
+#   bash install/build_extensions.sh
+#   python install/verify_install.py
+#
+# See install/README.md for the full walkthrough and the optional extras.
+name: surflo-cu118
+channels:
+  - nvidia/label/cuda-11.8.0   # pins every CUDA component to exactly 11.8
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+
+  # --- CUDA build toolchain -------------------------------------------------
+  # Deliberately NOT the full `cuda-toolkit` metapackage (several GB): these
+  # four cover everything the extensions actually use, for ~55 MB. Checked
+  # against the sources and the built objects --
+  #   cuda-nvcc        the compiler
+  #   cuda-cudart-dev  cuda_runtime.h, device_launch_parameters.h,
+  #                    cooperative_groups*, and libcudart -- the ONLY CUDA
+  #                    library either required extension links against
+  #   cuda-driver-dev  cuda.h, the driver API header the rasterizer includes
+  #   cuda-cccl        cub/, used for the radix sort and block reductions
+  # These four cover the Surflo rasterizer and fused_ssim, whose only CUDA
+  # dependency is libcudart -- `torch/extension.h` alone pulls in no CUDA math
+  # library. nvdiffrast needs more (see below). If some future extension wants
+  # a header none of these provide, swapping the whole block for
+  # `cuda-toolkit=11.8` is the one-line fallback.
+  - cuda-nvcc=11.8
+  - cuda-cudart-dev=11.8
+  - cuda-driver-dev=11.8
+  - cuda-cccl=11.8
+
+  # Needed by nvdiffrast, NOT by the Surflo rasterizer. nvdiffrast's
+  # framework.h includes <ATen/cuda/CUDAContext.h> directly, which pulls in
+  # cusparse.h / cublas_v2.h / cublasLt.h / cusolverDn.h. It JIT-compiles at
+  # FIRST USE rather than at install time, so a missing header here does not
+  # surface until someone actually textures a mesh.
+  - libcusparse-dev
+  - libcublas-dev
+  - libcusolver-dev
+  # EGL/GL headers for nvdiffrast's RasterizeGLContext (EGL/egl.h, GL/gl.h).
+  # The driver ships the runtime .so; these are the development headers.
+  - libegl-devel
+  - libgl-devel
+
+  # CUDA 11.8 supports GCC <= 11; modern distros ship 13+, which nvcc rejects.
+  - gxx_linux-64=11
+  - sysroot_linux-64=2.17
+
+  - pip:
+      # The Python stack (torch, torchvision, torch-cluster, ninja), shared
+      # verbatim with the uv / pip installation path. The surflo package
+      # itself is installed afterwards with `pip install -e .` -- see the
+      # note at the bottom of the requirements file.
+      - -r requirements-cu118.txt

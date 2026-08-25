@@ -1,0 +1,178 @@
+# Surflo quantitative evaluation entry point (scripts/evaluate.py).
+#
+# Runs plain or guided inference on a folder of VGGT-preprocessed scenes
+# (produced by scripts/preprocess.py), aligns each prediction to the GT
+# surface cloud (Umeyama on camera centers + robust scale-locked ICP), and
+# reports symmetric Chamfer (mean/median/trimmed, raw + diag-normalized) and
+# F1@tau. Per-scene records + an aggregate block are written to `output_json`.
+#
+# The metric core lives in surflo.metrics.eval_alignment -- the authoritative
+# implementation for the paper numbers.
+#
+# Pick a benchmark preset (it only names the benchmark -- everything else,
+# `cull_radius` included, comes from this file); always pass the concrete
+# preprocessed `data_dir`:
+#
+#   # Plain:
+#   python scripts/evaluate.py benchmarks=tnt \
+#       ckpt=/path/to/surflo_v0.pt \
+#       data_dir=/path/to/TNT-preprocessed \
+#       output_json=eval_results/tnt_plain.json
+#
+#   # Guided (per-scene gsplat refinement). `guided=no_densification` and
+#   # `cull_opacity_threshold=0.1` are the defaults below; pass
+#   # num_query_points = 2 * num_dump_points so the opacity cull still leaves
+#   # the target count (`num_dump_points` defaults to 99999):
+#   python scripts/evaluate.py benchmarks=dl3dv mode=guided \
+#       ckpt=/path/to/surflo_v0.pt \
+#       data_dir=/path/to/DL3DV-val-preprocessed \
+#       num_query_points=200000 \
+#       output_json=eval_results/dl3dv_guided.json
+#
+# If you raise `num_dump_points`, raise `chamfer_n_points` to the same value:
+# they size the prediction and the GT cloud respectively, and Chamfer is only
+# fair between equal-size clouds.
+
+defaults:
+  - model: surflo
+  - guided: no_densification   # only used when mode=guided
+  - expert: default            # DA3 monodepth expert (guided presets that request it)
+  - benchmarks: dl3dv
+  - _self_
+
+# --- Predictor -----------------------------------------------------------
+# Which reconstruction produces the prediction that gets scored:
+#   surflo -> the flow-matching model (uses `mode` below); needs `ckpt`.
+#   vggt   -> the VGGT-1B backbone (vendored in the Surflo model); no ckpt.
+#   da3    -> DepthAnything3 (loaded from HuggingFace); no ckpt.
+# The vggt/da3 baselines are eval-only (surflo.eval); the Surflo path is
+# unchanged. They REQUIRE preprocessing with `--save_rgb_images` (the forward
+# pass is re-run per scene). Per-scene cull stats always come from the cached
+# VGGT pointmap, so the cull region matches across predictors.
+predictor: surflo              # surflo | vggt | da3
+
+# --- Mode (predictor=surflo only) ----------------------------------------
+# guided uses the `guided` preset group (default: no_densification).
+# Select another with
+# `guided=<preset>` (e.g. minimal / short); presets that enable monodepth
+# / normal guidance run the DA3 expert (needs `--save_rgb_images` caches).
+mode: plain                    # plain | guided
+
+# --- Model / checkpoint --------------------------------------------------
+# Required for predictor=surflo; leave null for the vggt/da3 baselines.
+ckpt: null
+device: cuda
+seed: 42
+use_ema: true
+chamfer_seed_offset: 42        # per-scene CUDA generator seed (matches trainer)
+
+# --- Dataset -------------------------------------------------------------
+# `data_dir` points at a directory of preprocessed scenes (scripts/preprocess.py).
+data_dir: ???
+# GT cloud size (matches data.val.chamfer_n_points). MUST equal
+# `num_dump_points` below, which caps the prediction: Chamfer is density-biased,
+# so it is only fair between equal-size clouds. Change the two together.
+chamfer_n_points: 99999
+# --- Multi-view options (optional) --------------------------------------
+# `n_views`: evaluate at a specific view count N (deterministic). Files are
+#   matched as sample_*_views_{N:03d}.pt; bare sample_*.pt count as n_max_views.
+#   A scene with no cache at N raises rather than silently substituting another
+#   count. `null` picks uniformly among ALL of a scene's caches, which on a
+#   directory holding several view counts mixes them across scenes -- set it
+#   explicitly there. The count actually loaded is recorded per scene as
+#   `n_views` in the results.
+# `surface_data_dir`: where surface_data.npz lives, if separate from data_dir.
+# `n_max_views`: view count that bare sample_*.pt files correspond to.
+n_views: null
+surface_data_dir: null
+n_max_views: 16
+# Cull radius applied (in the normalized frame) to BOTH the GT surface sample
+# and the prediction. Scalar or [lo, hi] range (sampled deterministically
+# per scene, matching the trained cull_radius=[1.0, 3.0] curriculum).
+cull_radius: [1.0, 3.0]
+per_scene_normalize: true
+scene_normalize_mode: median_dist_to_medianpoint
+limit_scenes: null             # cap #scenes for a quick smoke test
+
+# --- Plain inference (mode=plain) ---------------------------------------
+num_steps: 100
+num_points_per_batch: 99999
+guidance_scale: 0.0
+
+# --- Shared by both modes -----------------------------------------------
+# Number of points sampled from the source distribution and flowed through the
+# ODE (guided mode seeds its Gaussians with them). `null` means "match the GT
+# cloud size" (i.e. `chamfer_n_points`) in BOTH modes, so Chamfer compares
+# equal-size clouds and its density bias stays constant across methods -- the
+# same reason `num_dump_points` caps the prediction. Set an integer to pin both
+# modes to a fixed count instead.
+num_query_points: null
+
+# --- Guided inference (mode=guided) -------------------------------------
+# Drop guided Gaussians with opacity < threshold before the radius cull /
+# subsample. `null` disables. Only read in guided mode; plain ignores it.
+# Pair with `num_query_points = 2 * num_dump_points`: the cull removes a
+# sizeable fraction of the Gaussians, so the ODE has to be oversampled for the
+# prediction to still reach the target point count.
+cull_opacity_threshold: 0.1
+
+# --- Baselines (predictor=vggt|da3) -------------------------------------
+# DepthAnything3 settings (predictor=da3 only). `da3_model_id` is any entry
+# in the DA3 MODEL_REGISTRY; the in-repo DA3 checkout is located and added to
+# sys.path automatically (see surflo/utils/da3_path.py).
+da3_model_id: depth-anything/DA3-LARGE
+da3_process_res: 504
+da3_process_res_method: upper_bound_resize
+
+# TSDF mesh-sampling baseline (predictor=vggt|da3 with use_tsdf=true). When
+# enabled, the raw point map is NOT subsampled: instead per-scene depth maps
+# are fused into multi-resolution axis-aligned tet grids (centred on the
+# per-scene mean, spanning +/- k*scale for k in radius_scales), a mesh is
+# extracted via marching tetrahedra, triangle-culled to the cull radius, and
+# points are sampled camera-distance-biased on the surface.
+use_tsdf: false
+tsdf:
+  n_cube_per_axis: 100           # cubes per axis per grid (6 tets / cube)
+  trunc_margin_factor: 0.025     # trunc_margin = factor * per-scene scale
+  radius_scales: [1.0, 3.0, 10.0]  # inner / middle / outer grid half-extents
+  initial_sdf_value: -1.0        # SDF for pivots no view ever sees
+  frustum_cull_before_sampling: true   # drop triangles unseen by all views
+  frustum_cull_znear: null       # null -> each camera's own znear
+
+# --- Post-inference culling / subsampling (both modes) ------------------
+# Radius-cull the prediction to match the dataset criterion, then optionally
+# uniformly subsample to `num_dump_points` (null keeps everything).
+cull_pred_to_radius: true
+# Caps the prediction. MUST equal `chamfer_n_points` above -- see the note there.
+num_dump_points: 99999
+
+# --- Robust ICP knobs (surflo.metrics.eval_alignment.align_pred_to_gt) ---
+icp:
+  iters: 30                    # 0 disables ICP (Umeyama only)
+  trim_frac: 0.3               # drop worst 30% correspondences each iter
+  init_max_dist_frac: 0.05     # initial truncation distance (fraction of GT diag)
+  final_max_dist_frac: 0.01    # final truncation distance (geometric schedule)
+  huber: true
+
+# --- GT-bbox cull on the aligned prediction ------------------------------
+gt_bbox_cull:
+  enabled: true
+  padding_frac: 0.0            # e.g. 0.05 to expand the GT bbox by 5% per axis
+
+# --- Metric knobs --------------------------------------------------------
+voxel_frac: 0.001              # voxel size for downsampling (fraction of GT diag)
+tau_frac: 0.01                 # F-score threshold (fraction of GT diag)
+trim: 0.05                     # chamfer_trimmed drops the top-5% distances
+
+# --- Instrumentation -----------------------------------------------------
+# Record per-phase wall-clock ("encode", "ode", "guidance", "polish") and peak
+# VRAM into every per-scene record. Needs a CUDA sync at each phase boundary,
+# so reported times are marginally pessimistic. Off by default inside the
+# library (`guided_inference(profile=False)`), on here.
+profile: true
+
+# --- Output --------------------------------------------------------------
+output_json: eval_results/surflo_eval.json
+
+# Optional scene allow-list, e.g. `scene_ids=[Ignatius]`. null = every scene.
+scene_ids: null

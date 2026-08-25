@@ -1,0 +1,138 @@
+# Surflo model (inference build).
+#
+# The exact architecture hyper-parameters of the released checkpoint
+# (`surflo_v0.pt`). `compile` defaults to false for inference.
+# Changing any architecture value here will break checkpoint loading.
+_target_: surflo.model.ffm.FFM
+
+estimate_in_freq_enc: false
+spatial_mean: [-0.0009664548509708326, -0.1530075818176061, 0.5449113849578763]
+spatial_std: [1.876203819188109, 0.8843501744816077, 1.9678368095875896]
+target_std: 0.5
+prediction_mode: velocity
+compute_loss_in_velocity: false
+
+scheduler:
+  _target_: flow_matching.path.scheduler.CondOTScheduler
+
+unconditional_ratio: 0.1
+use_mean_flow: false
+
+t_sampler:
+  _target_: surflo.nn.vggt.utils.time_sampling.LogitNormalTimeSampler
+  mu: 1.0
+  sigma: 1.6
+
+overfit_mode: false
+sample_from_vggt_world_points_with_sd: 0.1
+use_voxel_matching: false
+voxel_match_n_voxels_per_axis: 10
+per_scene_normalize: true
+scene_normalize_mode: median_dist_to_medianpoint
+renormalize_after_cull: false
+SDF: null
+
+# torch.compile is disabled by default for inference (no effect on outputs).
+compile: false
+cache_vggt_predictions_when_overfitting: false
+use_learned_tokens: false
+estimate_normals: true
+
+SurfaceNet:
+  _target_: surflo.model.surface_net.SurfaceNet
+  intermediate_layer_idx: [4, 11, 17, 23]
+  project_aggregated_tokens: true
+  project_aggregated_tokens_dim: 512
+  use_camera_tokens: true
+  encode_camera_tokens_separately: true
+  use_3d_positional_encoding_for_patch_tokens: true
+
+  tokens_3d_positional_encoder:
+    _target_: surflo.nn.spatial_encoder.GaussianSpatialEncoder
+    out_dim: 512
+    mlp_ratio: 4.0
+    bias: true
+    estimate_in_freq_enc: false
+    n_hidden_layers: 0
+    add_time_as_input: false
+    frequency_encoder:
+      _target_: surflo.nn.spatial_encoder.GaussianFrequencyEncoder
+      spatial_mean: [-0.0009664548509708326, -0.1530075818176061, 0.5449113849578763]
+      spatial_std: [1.876203819188109, 0.8843501744816077, 1.9678368095875896]
+      target_std: 0.5
+      in_dim: 3
+      num_freq: 512
+      sigma: [100.0, 64.93816315762113, 42.169650342858226, 27.384196342643612, 17.78279410038923, 11.547819846894583, 7.498942093324559, 4.869675251658632, 3.16227766016838, 2.0535250264571463, 1.3335214321633242, 0.8659643233600655, 0.5623413251903492, 0.3651741272548378, 0.23713737056616557, 0.15399265260594922]
+
+  decoder:
+    _target_: surflo.nn.decoder.SimpleFieldDecoder
+    use_mean_flow: false
+    estimate_in_freq_enc: false
+    field_dim: 6
+    depth: 12
+    mlp_ratio: 4.0
+    decoder_mlp_ratio: 1.0
+    decoder_mlp_n_hiden_layers: 1
+    embed_dim: 512
+    condition_on_camera_tokens_with_adaln: true
+    condition_on_camera_tokens_at_start_only: true
+    number_of_adaln_blocks: 2
+    adaln_mlp_ratio: 2.0
+    time_conditioning_mode: adaln
+    no_conditioning_token_projector: false
+    time_adaln_mlp_ratio: 2.0
+    use_adaln_decoding: true
+    n_additional_ffn_blocks: 2
+    final_decoding_n_hidden_layers: 0
+    cross_attn_depth: 6
+    num_heads: 16
+    qk_norm: true
+    use_camera_conditioning: true
+    value_gating: false
+
+    spatial_encoder:
+      _target_: surflo.nn.spatial_encoder.GaussianSpatialEncoder
+      out_dim: 512
+      mlp_ratio: 1.0
+      bias: true
+      estimate_in_freq_enc: false
+      n_hidden_layers: 0
+      add_time_as_input: true
+      frequency_encoder:
+        _target_: surflo.nn.spatial_encoder.GaussianFrequencyEncoder
+        in_dim: 6
+        num_freq: 512
+        sigma: [100.0, 64.93816315762113, 42.169650342858226, 27.384196342643612, 17.78279410038923, 11.547819846894583, 7.498942093324559, 4.869675251658632, 3.16227766016838, 2.0535250264571463, 1.3335214321633242, 0.8659643233600655, 0.5623413251903492, 0.3651741272548378, 0.23713737056616557, 0.15399265260594922]
+
+    time_encoder:
+      _target_: surflo.nn.time_encoder.TimeEncoder
+      out_dim: 512
+      mlp_ratio: 1.0
+      bias: true
+      estimate_in_freq_enc: false
+      n_hidden_layers: 0
+      add_time_as_input: false
+      frequency_encoder:
+        _target_: surflo.nn.time_encoder.TimeFrequencyEncoder
+        in_dim: 1
+        num_freq: 512
+        max_period: 10000.0
+        input_factor: 1000.0
+
+  camera_tokens_compressor:
+    _target_: surflo.nn.compressor.Compressor
+    embed_dim: 512
+    depth: 4
+    mlp_ratio: 4.0
+    sa_to_ca_ratio: 0
+    num_latent_tokens: 1
+    elastic: false
+
+  compressor:
+    _target_: surflo.nn.compressor.Compressor
+    embed_dim: 512
+    depth: 4
+    mlp_ratio: 4.0
+    sa_to_ca_ratio: 4
+    num_latent_tokens: 128
+    elastic: false

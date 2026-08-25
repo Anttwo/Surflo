@@ -1,0 +1,12 @@
+# @package guided
+# guided mode with densification / pruning / opacity-reset switched off.
+# Inherits the monodepth expert guidance from `default`.
+defaults:
+  - default
+  - _self_
+
+initial_n_gaussians_per_anchor: 1     # one Gaussian per anchor (no per-anchor spawn)
+# --- kill densification / prune / opacity-reset ---
+densify_until_step: 0
+densify_from_step: 100000
+opacity_reset_interval: 0

@@ -1,0 +1,70 @@
+# Logging config: `writer` instantiates the (offline-capable) wandb logger.
+# Two payload kinds are logged -- scalar metrics (`scalar_keys_to_log`) and 3D
+# point clouds (`viz`, on by default). Images, videos and histograms are not
+# supported. Note `viz` is what makes a run directory large: see its own block
+# at the bottom of this file.
+log_dir: logs
+log_freq: 1
+log_level_primary: INFO
+log_level_secondary: WARNING
+all_ranks: False
+
+writer:
+  _target_: utils.wandb_writer.WandBLogger
+  entity: null
+  project: surflo
+  exp_name: ${exp_name}
+
+# Per-phase scalar keys logged from the loss / forward output dicts. Only keys
+# actually produced under the canonical config (prediction_mode=velocity,
+# estimate_in_freq_enc=false) are listed.
+scalar_keys_to_log:
+  train:
+    keys_to_log:
+      - loss_cm
+      - loss_cm_sqrt
+      - initial_points_mean
+      - initial_points_std
+      - surface_points_mean
+      - surface_points_std
+      - predicted_surface_points_mean
+      - predicted_surface_points_std
+      - predicted_velocity_mean
+      - predicted_velocity_std
+      - conditional_velocity_mean
+      - conditional_velocity_std
+  val:
+    keys_to_log:
+      - loss_cm
+      - loss_cm_sqrt
+      - initial_points_mean
+      - initial_points_std
+      - surface_points_mean
+      - surface_points_std
+      - predicted_surface_points_mean
+      - predicted_surface_points_std
+      - predicted_velocity_mean
+      - predicted_velocity_std
+      - conditional_velocity_mean
+      - conditional_velocity_std
+
+# Inference settings for the validation Chamfer-distance metric.
+chamfer_eval:
+  num_steps: 50
+  num_points_per_batch: 33333
+  guidance_scale: 0.0
+
+# Periodic point-cloud visualization in wandb. Uses PLAIN inference only
+# (model.batched_inference, guidance_scale=0) so the Surflo CUDA rasterizer is
+# never imported -- required on clusters where that kernel is not installed.
+# Rank 0 only; the visualized scenes are fixed (first batch of a seeded loader)
+# so their evolution is comparable across training.
+viz:
+  enabled: true
+  train_iter_freq: 10000    # M: visualize train scenes every M optimizer steps
+  val_epoch_freq: 4         # N: visualize val scenes every N epochs
+  num_train_scenes: 3       # L: fixed train scenes (capped by per-GPU batch size)
+  num_val_scenes: 3         # P: fixed val scenes (capped by per-GPU batch size)
+  num_steps: 50             # plain-inference ODE steps for the viz clouds
+  num_query_points: 100000  # points per visualized cloud
+  seed: 12345               # fixed source-noise seed -> isolates model evolution

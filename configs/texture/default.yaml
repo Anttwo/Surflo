@@ -1,0 +1,44 @@
+# @package texture
+# Texture refinement of `mesh.ply` (guided mode). Enabled by default: it writes
+# an extra textured mesh next to `mesh.ply` without changing the mesh geometry.
+# Set `texture.enabled=false` to stop after the untextured `mesh.ply`.
+#
+# Two representations, switchable via `mode`:
+#   * vertex_colors -- one RGB per mesh vertex -> `mesh_textured.ply`
+#                      (cheap, no extra deps).
+#   * uv_texture    -- UV atlas (xatlas) + 2D texture refined through
+#                      nvdiffrast -> `mesh_textured.glb` (requires xatlas +
+#                      nvdiffrast; sharpness decoupled from mesh density).
+#
+# Both modes use the SAME cameras as mesh extraction (refined or original,
+# per `mesh.use_refined_cameras`) and the same input images.
+enabled: true
+mode: vertex_colors
+
+# Optimisation budget (set n_iterations=0 to only seed colors, no refinement).
+n_iterations: 0
+learning_rate: 0.0025
+lambda_dssim: 0.2
+
+# (vertex_colors) required for the heavy wrapping meshes (#faces > 2**24).
+use_scalable_renderer: true
+
+# Initial vertex color seed. One of {gray, white, black, preserve, tsdf} or a
+# 3-list RGB in [0, 1]. "tsdf" seeds via per-vertex TSDF fusion using the
+# mesh's own rendered depth.
+init_color: tsdf
+tsdf_trunc_margin_first_pass_factor: 2.0e-3
+tsdf_trunc_margin_fallback_factor: 1.0
+
+# --- UV-texture knobs (mode == uv_texture) ---
+texture_resolution: 2048
+atlas_padding: 2
+atlas_max_chart_iterations: 0
+dilate_iterations: 4
+uv_texture_learning_rate: 0.01
+use_mipmaps: true
+use_antialiasing: true
+
+# Output filename next to mesh.ply. Extension is auto-corrected per mode
+# (.ply for vertex_colors, .glb for uv_texture).
+output_filename: mesh_textured.ply

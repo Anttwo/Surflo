@@ -1,0 +1,30 @@
+# @package _global_
+#
+# Canonical fixed-16-view curriculum run (4 GPUs) over the full DL3DV dataset.
+# Every item is loaded with N=16 views (12 scenes/global batch), pinned by
+# `img_nums: [16, 16]`. Cull-radius follows the same power-law curriculum on
+# [1.0, 3.0] as the variable-view run (`orbit_2to16views`).
+defaults:
+  - override /data: multiview
+
+exp_name: surflo_curriculum_16views_fulldataset_4gpu
+
+num_val_scenes: 100
+max_img_per_gpu: 48
+img_nums: [16, 16]
+max_epochs: 201
+
+limit_train_batches: 2500
+limit_val_batches: 2
+slow_val_epoch_freq: 1000000
+ood_val_epoch_freq: 1
+
+cull_radius: [1.0, 3.0]
+
+# Cull-radius curriculum (train split only).
+cull_curriculum_warmup_epochs: 20
+cull_curriculum_law: "power"
+cull_curriculum_k_init: 3.0
+cull_curriculum_alpha_init: 3.0
+cull_curriculum_mode: 1.0
+cull_curriculum_max_progress: 0.85

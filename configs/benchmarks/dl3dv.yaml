@@ -1,0 +1,4 @@
+# @package _global_
+# DL3DV validation split. `data_dir` must point at the preprocessed scenes.
+benchmark_name: dl3dv
+data_dir: ???

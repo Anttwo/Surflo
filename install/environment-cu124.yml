@@ -1,0 +1,62 @@
+# Surflo — self-contained conda environment for CUDA 12.4 / PyTorch 2.4.1.
+#
+# Recent-CUDA path. cu124 builds start at torch 2.4, so this uses torch 2.4.1 —
+# the same stack as the CUDA 12.4 reference environment (H100).
+#
+# conda's only job here is the BUILD TOOLCHAIN: an `nvcc` and a C++ compiler
+# that match the torch wheel, plus the CUDA headers the extensions include.
+# The Python stack (torch included) comes from install/requirements-cu124.txt,
+# the same file the uv / pip path uses — so both installation options end up
+# with byte-identical packages.
+#
+# Usage — run from the repository root:
+#   conda env create -f install/environment-cu124.yml
+#   conda activate surflo-cu124
+#   pip install -e .
+#   bash install/activate_cuda.sh && conda deactivate && conda activate surflo-cu124
+#   bash install/build_extensions.sh
+#   python install/verify_install.py
+#
+# See install/README.md for the full walkthrough and the optional extras.
+name: surflo-cu124
+channels:
+  - nvidia/label/cuda-12.4.0   # pins every CUDA component to exactly 12.4
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+
+  # --- CUDA build toolchain -------------------------------------------------
+  # See the commentary in environment-cu118.yml. The cuda-* four serve the
+  # Surflo rasterizer and fused_ssim; the libcusparse/libcublas/libcusolver and
+  # EGL/GL entries below serve nvdiffrast. This is still far smaller than the
+  # multi-GB `cuda-toolkit` metapackage, which is the fallback if something
+  # ever wants a header none of these provide (`cuda-toolkit=12.4`).
+  - cuda-nvcc=12.4
+  - cuda-cudart-dev=12.4
+  - cuda-driver-dev=12.4
+  - cuda-cccl=12.4
+
+  # Needed by nvdiffrast, NOT by the Surflo rasterizer. nvdiffrast's
+  # framework.h includes <ATen/cuda/CUDAContext.h> directly, which pulls in
+  # cusparse.h / cublas_v2.h / cublasLt.h / cusolverDn.h. It JIT-compiles at
+  # FIRST USE rather than at install time, so a missing header here does not
+  # surface until someone actually textures a mesh.
+  - libcusparse-dev
+  - libcublas-dev
+  - libcusolver-dev
+  # EGL/GL headers for nvdiffrast's RasterizeGLContext (EGL/egl.h, GL/gl.h).
+  # The driver ships the runtime .so; these are the development headers.
+  - libegl-devel
+  - libgl-devel
+
+  # CUDA 12.4 supports GCC <= 13.
+  - gxx_linux-64=13
+  - sysroot_linux-64=2.17
+
+  - pip:
+      # The Python stack (torch, torchvision, torch-cluster, ninja), shared
+      # verbatim with the uv / pip installation path. The surflo package
+      # itself is installed afterwards with `pip install -e .` -- see the
+      # note at the bottom of the requirements file.
+      - -r requirements-cu124.txt

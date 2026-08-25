@@ -1,0 +1,17 @@
+# @package guided
+# guided mode with the monodepth expert disabled -- runs out of the
+# box with no extra tensor inputs.
+#
+# NOTE it extends `minimal`, not `default`, so it also inherits minimal's
+# smaller budget. Compare it against `minimal`, not against `default`.
+defaults:
+  - minimal
+  - _self_
+
+use_monodepth_guidance: false
+use_normal_guidance: false
+use_curvature_loss_for_normal_guidance: false
+
+# Lambda schedules.
+lambda_depth_schedule_values: [5.0]
+lambda_depth_schedule_steps: [125]

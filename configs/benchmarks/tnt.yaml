@@ -1,0 +1,4 @@
+# @package _global_
+# Tanks & Temples. `data_dir` must point at the preprocessed scenes.
+benchmark_name: tnt
+data_dir: ???

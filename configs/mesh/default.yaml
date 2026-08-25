@@ -1,0 +1,24 @@
+# @package mesh
+# Default `pivot_extraction_with_binary_search` kwargs (guided mode).
+# Extracts a wrapping mesh from the optimized Gaussians.
+enabled: true
+kernel_size: 0.0
+sdf_isosurface_value: 0.0
+use_regular_pivots: true
+std_factor: 3.33
+n_pivots: 9
+use_smallest_axis_as_normal: true
+n_points_per_sdf_evaluation: 20000000
+use_valid_mask: true
+filter_large_edges: true
+collapse_large_edges: false
+mtet_on_cpu: false
+n_binary_steps: 10
+# Delaunay backend for the pivot tetrahedralization, which dominates meshing
+# time. `geodel` (Geogram ParallelDelaunay3d, multi-threaded) is the default and
+# falls back to `scipy` with a warning if not installed. `scipy` forces the
+# single-threaded Qhull path.
+delaunay_method: geodel
+# When true (and the guided result has aux_cam_quats / aux_cam_trans), extract
+# against the refined cameras (matches the interactive demo).
+use_refined_cameras: true

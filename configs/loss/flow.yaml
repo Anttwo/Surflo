@@ -1,0 +1,5 @@
+# Flow-matching L2 loss (see training/losses.py). The mean-flow loss was dropped.
+_target_: losses.FlowLoss
+estimate_in_freq_enc: ${estimate_in_freq_enc}
+prediction_mode: ${prediction_mode}
+compute_loss_in_velocity: ${compute_loss_in_velocity}

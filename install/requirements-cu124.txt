@@ -1,0 +1,44 @@
+# Surflo — pip / uv requirements for CUDA 12.4 / PyTorch 2.4.1.
+#
+# This is the stack used by the CUDA 12.4 reference environment (H100 cluster,
+# `module load cuda/12.4.1` + a uv venv), so it is the best-tested pip path.
+#
+# For an environment that ALREADY has Python 3.10 and a CUDA 12.4 toolkit on
+# PATH. Check with `nvcc --version` — it must report 12.4. If you do not have
+# a matching toolkit, use install/environment-cu124.yml, which supplies its own.
+#
+# Usage — run from the repository root:
+#   uv venv --python 3.10 && source .venv/bin/activate
+#   uv pip install --index-strategy unsafe-best-match \
+#       -r install/requirements-cu124.txt
+#   bash install/build_extensions.sh
+#   python install/verify_install.py
+#
+# The --index-strategy flag is REQUIRED with uv: by default it considers only
+# the first index carrying a package, so it finds an outdated tqdm on the
+# PyTorch index and fails to resolve. Set UV_INDEX_STRATEGY=unsafe-best-match
+# to avoid repeating it. Plain pip needs no such flag:
+#   pip install -r install/requirements-cu124.txt
+# See install/README.md for the full walkthrough and the optional extras.
+--extra-index-url https://download.pytorch.org/whl/cu124
+--find-links https://data.pyg.org/whl/torch-2.4.1+cu124.html
+
+# --- CUDA-specific: must match the nvcc on your PATH ---
+torch==2.4.1+cu124
+torchvision==0.19.1+cu124
+torch-cluster==1.6.3
+# Capped below 2.8: 2.8 requires pyg-lib for knn and dropped the
+# torch_cluster fallback the model relies on (see pyproject.toml).
+torch-geometric>=2.7.0,<2.8
+
+# Parallel builds for the compiled extensions (~2 min instead of ~20).
+ninja
+
+# NOTE: the surflo package itself is deliberately NOT listed here.
+# A relative `-e .` cannot be correct for both callers: pip resolves it against
+# this file's own directory (install/), while a direct `pip install -r` from the
+# repository root would want the root. Installing the package is therefore an
+# explicit step:
+#     pip install -e .          # run from the repository root
+# That also pulls every CUDA-agnostic dependency (einops, hydra, trimesh, ...)
+# from pyproject.toml, which stays their single source of truth.

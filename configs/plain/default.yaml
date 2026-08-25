@@ -1,0 +1,9 @@
+# @package plain
+# Plain (unguided) flow-matching inference: a dense source sample flowed through
+# the ODE into a set of oriented points. No rendering guidance, no mesh.
+# Both the source and the target points are saved.
+num_steps: 100
+num_points_per_batch: 100000
+guidance_scale: 0.0
+save_initial: true
+save_final: true
