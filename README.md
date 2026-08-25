@@ -168,6 +168,11 @@ python examples/gradio_demo.py --ckpt /path/to/surflo_v0.pt
 # --dev to load images from a server-side directory (useful over SSH)
 ```
 
+> **Sample scene.** We provide in [`media/sample/`](media/sample) 16 views 
+> of the [*garden*](https://jonbarron.info/mipnerf360/) scene, 
+> so the repository ships with something you can reconstruct immediately. 
+> You can try the demo with these images.
+
 Using the interface:
 
 1. **Select images** — upload a set of views (or point to a server-side folder in `--dev` mode).
@@ -185,6 +190,11 @@ Using the interface:
 
 The script `scripts/infer.py` runs the full Surflo pipeline to reconstruct a surface from a folder of images. It can be run with or without guidance.
 
+> **Sample scene.** Most inference examples below run on [`media/sample/`](media/sample), 
+> containing 16 views of the [*garden*](https://jonbarron.info/mipnerf360/) scene, 
+> so the repository ships with something you can reconstruct immediately. 
+> **Replace that path with any folder of JPG/PNG images** to reconstruct a scene of your own.
+
 ### **Guided** (rendering-guided flow → point cloud + mesh):
 
 The following commands run Surflo with various guidance presets, using 100,000 points and a variable number of input images sampled in a folder:
@@ -193,7 +203,7 @@ The following commands run Surflo with various guidance presets, using 100,000 p
 # Default preset, good balance between runtime and mesh details
 python scripts/infer.py mode=guided guided=default \
     ckpt=/path/to/surflo_v0.pt \
-    source.image_folder=/path/to/images \
+    source.image_folder=media/sample \
     source.n_images=16 \
     num_query_points=100000 \
     output_dir=outputs/surflo_guided
@@ -201,15 +211,15 @@ python scripts/infer.py mode=guided guided=default \
 # Minimal preset, fastest inference
 python scripts/infer.py mode=guided guided=minimal \
     ckpt=/path/to/surflo_v0.pt \
-    source.image_folder=/path/to/images \
-    source.n_images=8 \
+    source.image_folder=media/sample \
+    source.n_images=16 \
     num_query_points=100000 \
     output_dir=outputs/surflo_guided
 
 # Default preset, but with more vertices
 python scripts/infer.py mode=guided guided=default_highres \
     ckpt=/path/to/surflo_v0.pt \
-    source.image_folder=/path/to/images \
+    source.image_folder=media/sample \
     source.n_images=16 \
     num_query_points=100000 \
     output_dir=outputs/surflo_guided
@@ -247,7 +257,7 @@ The following command runs Surflo without guidance, using 100,000 points and 16 
 ```bash
 python scripts/infer.py mode=plain \
     ckpt=/path/to/surflo_v0.pt \
-    source.image_folder=/path/to/images \
+    source.image_folder=media/sample \
     source.n_images=16 \
     num_query_points=100000 \
     output_dir=outputs/surflo_plain
@@ -295,7 +305,7 @@ surflo = Surflo.from_checkpoint("/path/to/surflo_v0.pt", device=device)
 
 # 2. Encode images into a fixed-size global state.
 #    Accepts a folder path, a list of image paths, or an image tensor.
-scene = surflo.encode("/path/to/images", n_images=16)
+scene = surflo.encode("media/sample", n_images=16)
 
 # 3. The global state is available for downstream applications.
 print(scene.global_state.shape)          # (1, K, D) latent tokens

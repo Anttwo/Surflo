@@ -12,7 +12,7 @@ Run it from the repository root:
 
     python examples/quickstart.py \
         --ckpt /path/to/surflo_v0.pt \
-        --images /path/to/scene/images \
+        --images media/sample \
         --out outputs/quickstart \
         --guided --preset default_highres
 
