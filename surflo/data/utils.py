@@ -741,7 +741,7 @@ def find_robust_alignment_transform(
     colmap_cameras: Union[List[List[Camera]], MultiCameras],
     vggt_cameras: Union[List[List[Camera]], MultiCameras],
     main_cam_idx: int=0,
-    spatial_std: Union[torch.Tensor, float]=10.0,
+    spatial_scale: Union[torch.Tensor, float]=20.0,
     weight_quantile_threshold: float=0.5,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
@@ -758,7 +758,7 @@ def find_robust_alignment_transform(
         vggt_cameras (Union[List[List[Camera]], MultiCameras]): List of lists of VGGT cameras. Should contain B elements, 
             where each element is a list of cameras for a given scene. Can be a MultiCameras object for parallel processing.
         main_cam_idx (int, optional): Index of the main camera. Defaults to 0.
-        spatial_std (Union[torch.Tensor, float], optional): Characteristic spatial scale (per-channel std or scalar). Used to normalize alignment error for weight computation. Defaults to 10.0.
+        spatial_scale (Union[torch.Tensor, float], optional): Characteristic spatial scale (scalar, or per-channel values that are averaged). Used to normalize alignment error for weight computation. Defaults to 20.0.
         weight_quantile_threshold (float, optional): Quantile threshold for filtering outliers based on the weights. Defaults to 0.5.
 
     Returns: Tuple of (M, L, T), where:
@@ -777,10 +777,10 @@ def find_robust_alignment_transform(
     )  # (B, P, 3)
     
     # Compute weights based on the coarse alignment transform
-    if isinstance(spatial_std, torch.Tensor):
-        characteristic_scale = spatial_std.mean().item()
+    if isinstance(spatial_scale, torch.Tensor):
+        characteristic_scale = spatial_scale.mean().item()
     else:
-        characteristic_scale = float(spatial_std)
+        characteristic_scale = float(spatial_scale)
     weights = (coarse_aligned_colmap_world_points - vggt_world_points).norm(dim=-1) / characteristic_scale  # (B, P)
     weights = torch.nn.Softmin(dim=-1)(weights)  # (B, P)
     
